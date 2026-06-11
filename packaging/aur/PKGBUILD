@@ -1,0 +1,38 @@
+# Maintainer: James Byrne <james@frostbyrne.io>
+pkgname=claurde
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="AI-gated AUR wrapper: reviews PKGBUILDs with Claude before building"
+arch=('x86_64')
+url="https://github.com/Frostbyrne/claurde"
+license=('MIT')
+depends=('gcc-libs' 'git' 'pacman')
+makedepends=('cargo')
+optdepends=('paru: native -Bi build handoff (otherwise makepkg is used)')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')  # run updpkgsums after the v1.0.0 release to pin
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  export RUSTUP_TOOLCHAIN=stable
+  export CARGO_TARGET_DIR=target
+  cargo build --frozen --release
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  cargo test --frozen --release
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  install -Dm755 "target/release/$pkgname" "$pkgdir/usr/bin/$pkgname"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}
