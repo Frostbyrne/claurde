@@ -1,0 +1,21 @@
+[package]
+name = "claurde"
+version = "1.0.0"
+edition = "2021"
+description = "AI-gated AUR wrapper: reviews PKGBUILDs with Claude before handing off to your AUR helper (paru, yay, pikaur, trizen, or plain makepkg)"
+license = "MIT"
+repository = "https://github.com/Frostbyrne/claurde"
+readme = "README.md"
+keywords = ["aur", "security", "pacman", "arch"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ureq = { version = "2", features = ["json"] }
+
+[profile.release]
+lto = true
+strip = true

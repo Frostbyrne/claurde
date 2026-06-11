@@ -1,0 +1,16 @@
+pkgbase = claurde
+	pkgdesc = AI-gated AUR wrapper: reviews PKGBUILDs with Claude before building
+	pkgver = 1.0.0
+	pkgrel = 1
+	url = https://github.com/Frostbyrne/claurde
+	arch = x86_64
+	license = MIT
+	makedepends = cargo
+	depends = gcc-libs
+	depends = git
+	depends = pacman
+	optdepends = paru: native -Bi build handoff (otherwise makepkg is used)
+	source = claurde-1.0.0.tar.gz::https://github.com/Frostbyrne/claurde/archive/refs/tags/v1.0.0.tar.gz
+	sha256sums = SKIP
+
+pkgname = claurde
