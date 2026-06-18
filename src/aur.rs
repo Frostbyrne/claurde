@@ -257,6 +257,44 @@ pub fn head_commit(repo: &Path) -> Option<String> {
     Some(String::from_utf8_lossy(&out.stdout).trim().to_string())
 }
 
+/// Return the names of all foreign (AUR) packages that have an update available.
+/// Compares `pacman -Qm` installed versions against the current AUR RPC version.
+pub fn aur_upgrades() -> Result<Vec<String>> {
+    let out = Command::new("pacman")
+        .args(["-Qm"])
+        .output()
+        .context("failed to run pacman -Qm")?;
+    if !out.status.success() {
+        return Ok(vec![]);
+    }
+    let installed: Vec<(String, String)> = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter_map(|l| {
+            let mut parts = l.split_whitespace();
+            let name = parts.next()?.to_string();
+            let ver = parts.next()?.to_string();
+            Some((name, ver))
+        })
+        .collect();
+
+    if installed.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let names: Vec<String> = installed.iter().map(|(n, _)| n.clone()).collect();
+    let info = rpc_info(&names)?;
+
+    let mut upgrades = Vec::new();
+    for (name, installed_ver) in &installed {
+        if let Some(pkg) = info.get(name) {
+            if pkg.version != *installed_ver {
+                upgrades.push(name.clone());
+            }
+        }
+    }
+    Ok(upgrades)
+}
+
 pub struct ResolvedPkg {
     pub info: AurPkg,
     pub path: PathBuf,

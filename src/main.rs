@@ -21,6 +21,10 @@ struct Cli {
     /// Packages to install (AUR package names).
     packages: Vec<String>,
 
+    /// Upgrade all installed AUR packages (equivalent to -Syu).
+    #[arg(long)]
+    upgrade_all: bool,
+
     /// AUR helper to hand off to (paru, yay, pikaur, trizen, aura, makepkg).
     #[arg(long)]
     helper: Option<String>,
@@ -240,21 +244,35 @@ fn select_targets(requested: &[String]) -> Result<Vec<String>> {
 }
 
 fn run() -> Result<()> {
-    let cli = Cli::parse();
+    let cli = Cli::parse_from(normalize_args(std::env::args_os()));
 
     // First-run onboarding: if no API key is configured and we're interactive,
     // guide the user through creating and securely storing one before anything
     // else. No-op when a key already exists or when non-interactive.
     config::ensure_api_key()?;
 
-    if cli.packages.is_empty() {
-        bail!("No packages specified. Usage: claurde <package>...");
-    }
     let cfg = Config::load(cli.model, cli.helper)?;
+
+    // -Syu / --upgrade-all: find all AUR packages with available updates.
+    let packages = if cli.upgrade_all {
+        eprintln!("Checking for AUR package upgrades...");
+        let upgrades = aur::aur_upgrades()?;
+        if upgrades.is_empty() {
+            eprintln!("{}", color("32", "All AUR packages are up to date."));
+            return Ok(());
+        }
+        eprintln!("Found {} upgrade(s): {}", upgrades.len(), upgrades.join(", "));
+        upgrades
+    } else {
+        if cli.packages.is_empty() {
+            bail!("No packages specified. Usage: claurde <package>...\n       claurde -Syu   (upgrade all AUR packages)");
+        }
+        cli.packages
+    };
 
     // Provider choice happens FIRST, before any review or build, so clAURde
     // reviews and installs exactly the package the user picked.
-    let targets = select_targets(&cli.packages)?;
+    let targets = select_targets(&packages)?;
 
     eprintln!("Resolving AUR dependency tree...");
     let pkgs = aur::resolve(&targets, &cfg.cache_dir)?;
@@ -345,6 +363,37 @@ fn run() -> Result<()> {
     }
 
     handoff(&cfg, &pkgs)
+}
+
+/// Expand pacman-style combined short flags so clap can parse them.
+/// `-Syu`, `-Suy`, `-Su`, `-Sy` → `--upgrade-all`
+/// The `S`, `y`, and `u` characters in any order after `-` are treated as
+/// the upgrade-all invocation. Any unrecognized combined-flag string is passed
+/// through unchanged so clap produces the normal unknown-argument error.
+fn normalize_args<I>(args: I) -> Vec<std::ffi::OsString>
+where
+    I: IntoIterator<Item = std::ffi::OsString>,
+{
+    args.into_iter()
+        .map(|a| {
+            if let Some(s) = a.to_str() {
+                if let Some(flags) = s.strip_prefix('-') {
+                    // Only touch single-dash args whose characters are a subset of {S,y,u}
+                    // and contain at least S and u (the meaningful pair).
+                    let chars: std::collections::HashSet<char> = flags.chars().collect();
+                    let known: std::collections::HashSet<char> = ['S', 'y', 'u'].iter().cloned().collect();
+                    if !flags.is_empty()
+                        && chars.is_subset(&known)
+                        && chars.contains(&'S')
+                        && chars.contains(&'u')
+                    {
+                        return std::ffi::OsString::from("--upgrade-all");
+                    }
+                }
+            }
+            a
+        })
+        .collect()
 }
 
 fn main() {

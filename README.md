@@ -15,7 +15,8 @@ and informed by the [atomic-lockfile malware analysis](https://ioctl.fail/prelim
 then shells out to whatever helper you already use for the actual build:
 
 ```
-claurde <pkg> ──▶ pick provider (if ambiguous) ──▶ resolve AUR deptree
+claurde <pkg>  ──▶ pick provider (if ambiguous) ──▶ resolve AUR deptree
+claurde -Syu   ──▶ pacman -Qm → diff vs AUR  ──▶ resolve AUR deptree
                                                          │
                                                          ▼
                                        fetch PKGBUILDs + sources + git history
@@ -114,12 +115,43 @@ cheaper bulk runs, or `--model claude-fable-5` for the most thorough analysis.
 
 ```
 claurde slack-desktop            # resolve, review whole tree, then build via your helper
+claurde -Syu                     # review and upgrade all installed AUR packages
+claurde --upgrade-all            # same as -Syu (long form)
 claurde --review-only foo bar    # audit only; never build
 claurde --json foo               # machine-readable verdicts to stdout
 claurde --no-review foo          # escape hatch: skip the gate
 claurde --yes foo                # build even if findings raised (not recommended)
 claurde --no-fetch-sources foo   # review only AUR repo files; don't fetch upstream
 ```
+
+### Upgrading all AUR packages
+
+`claurde -Syu` mirrors the pacman/helper convention for a full system AUR upgrade.
+It queries `pacman -Qm` for all installed foreign packages, checks the AUR for
+newer versions, and runs the **full review pipeline** on every changed package
+before building anything — the same gate as a fresh install.
+
+```console
+$ claurde -Syu
+Checking for AUR package upgrades...
+Found 3 upgrade(s): paru, slack-desktop, zoom
+Resolving AUR dependency tree...
+  fetching paru ...
+  fetching slack-desktop ...
+  fetching zoom ...
+Reviewing 3 package(s) with claude-opus-4-8 ...
+
+[SAFE] paru  (risk 2/100)  Standard Rust AUR helper build. No network access at build time.
+[SAFE] slack-desktop  (risk 3/100)  Downloads the official .deb with a pinned checksum.
+[SAFE] zoom  (risk 4/100)  Repackages the official Zoom .rpm. No custom scripts.
+
+All packages passed review.
+...
+```
+
+`-Syu`, `-Suy`, and `-Su` are all accepted (the `y` refresh step is a no-op
+since clAURde always queries the live AUR RPC). `--upgrade-all` is the
+canonical long form.
 
 Exit status is non-zero if the review wasn't clean and you decline to continue,
 so `clAURde` composes into scripts and CI.
