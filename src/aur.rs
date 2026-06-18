@@ -264,8 +264,13 @@ pub fn aur_upgrades() -> Result<Vec<String>> {
         .args(["-Qm"])
         .output()
         .context("failed to run pacman -Qm")?;
+    // Fail loudly rather than reporting "nothing to upgrade" — an errored
+    // pacman query must not be mistaken for an up-to-date system.
     if !out.status.success() {
-        return Ok(vec![]);
+        bail!(
+            "pacman -Qm failed: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        );
     }
     let installed: Vec<(String, String)> = String::from_utf8_lossy(&out.stdout)
         .lines()

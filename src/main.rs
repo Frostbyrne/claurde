@@ -366,10 +366,10 @@ fn run() -> Result<()> {
 }
 
 /// Expand pacman-style combined short flags so clap can parse them.
-/// `-Syu`, `-Suy`, `-Su`, `-Sy` → `--upgrade-all`
-/// The `S`, `y`, and `u` characters in any order after `-` are treated as
-/// the upgrade-all invocation. Any unrecognized combined-flag string is passed
-/// through unchanged so clap produces the normal unknown-argument error.
+/// `-Syu`, `-Suy`, `-Su` → `--upgrade-all` (any order; must contain both `S`
+/// and `u`, the upgrade pair). A bare `-Sy` (refresh only, no upgrade) is
+/// deliberately NOT matched. Any other single-dash string is passed through
+/// unchanged so clap produces the normal unknown-argument error.
 fn normalize_args<I>(args: I) -> Vec<std::ffi::OsString>
 where
     I: IntoIterator<Item = std::ffi::OsString>,
